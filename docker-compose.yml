@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # Main application service
+  app:
+    build: .
+    container_name: xml-extractor-app
+    volumes:
+      - ./:/app
+    command: python main.py sample_patent.xml
+    
+  # Test runner service
+  test:
+    build: .
+    container_name: xml-extractor-tests
+    volumes:
+      - ./:/app
+    command: pytest tests/ -v --tb=short
+    
+  # Interactive shell for development
+  shell:
+    build: .
+    container_name: xml-extractor-shell
+    volumes:
+      - ./:/app
+    stdin_open: true
+    tty: true
+    command: /bin/bash
