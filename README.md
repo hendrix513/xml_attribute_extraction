@@ -72,6 +72,9 @@ Docker provides a consistent environment and is the easiest way to run the appli
 # Run the application with the sample XML file
 docker-compose up app
 
+# Run with your own XML file (just place it in the project directory!)
+docker-compose run --rm app python main.py your-file.xml
+
 # Run unit tests
 docker-compose up test
 
@@ -79,17 +82,19 @@ docker-compose up test
 docker-compose up shell
 ```
 
+The current directory is automatically mounted, so you can place any XML file in the project folder and reference it by name - no manual volume binding needed!
+
 #### Building and Running Manually
 
 ```bash
 # Build the Docker image
 docker build -t xml-extractor .
 
-# Run with sample file
+# Run with the built-in sample file
 docker run --rm xml-extractor
 
-# Run with custom file (mount your file into the container)
-docker run --rm -v $(pwd)/your-file.xml:/app/your-file.xml xml-extractor python main.py your-file.xml
+# Run with a custom file from your host machine
+docker run --rm -v $(pwd):/app xml-extractor python main.py your-file.xml
 
 # Run tests
 docker run --rm xml-extractor pytest tests/ -v
@@ -127,13 +132,13 @@ This project uses [uv](https://github.com/astral-sh/uv) for dependency managemen
 
 ### Running the Application
 
-#### With Docker
+#### With Docker (Easiest!)
 ```bash
-# Using docker-compose
+# Run with the built-in sample file
 docker-compose up app
 
-# With custom XML file
-docker run --rm -v $(pwd)/your-file.xml:/app/your-file.xml xml-extractor python main.py your-file.xml
+# Run with your own XML file (just put it in the project directory!)
+docker-compose run --rm app python main.py your-file.xml
 ```
 
 #### Local (after uv setup)
@@ -145,19 +150,21 @@ python main.py <path_to_xml_file>
 uv run python main.py <path_to_xml_file>
 ```
 
-### Example with Sample Data
+### Quick Start with Sample Data
 
-A sample XML file (`sample_patent.xml`) is included for testing:
+The easiest way to see the application in action is with Docker:
 
 ```bash
-# Docker
 docker-compose up app
+```
 
-# Local
+For local development, a sample XML file (`sample_patent.xml`) is also included:
+
+```bash
 python main.py sample_patent.xml
 ```
 
-**Expected Output:**
+**Expected Output (both methods):**
 ```
 Extracted doc-numbers (in priority order):
   999000888

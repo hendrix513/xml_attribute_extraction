@@ -4,20 +4,16 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install uv for fast dependency management
-RUN pip install --no-cache-dir uv
+# Install pytest for testing
+RUN pip install --no-cache-dir pytest pytest-cov
 
-# Copy project files
-COPY pyproject.toml ./
+# Copy application files
 COPY main.py ./
 COPY extractor.py ./
 COPY sample_patent.xml ./
 
 # Copy tests directory
 COPY tests/ ./tests/
-
-# Install dependencies using uv
-RUN uv pip install --system -e .
 
 # Set Python to unbuffered mode for better logging
 ENV PYTHONUNBUFFERED=1
