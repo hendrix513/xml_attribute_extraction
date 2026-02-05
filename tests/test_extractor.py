@@ -5,12 +5,13 @@ Tests cover all extraction logic including:
 - Priority ordering (epo > patent-office > others)
 - Error handling (malformed XML, missing elements)
 - Edge cases (empty values, multiple documents)
+- XML embedded in text documents
 """
 
 import pytest
 from pathlib import Path
 import tempfile
-from extractor import extract_doc_numbers, read_xml_file, extract_doc_numbers_from_file
+from extractor import extract_doc_numbers, read_xml_file, extract_doc_numbers_from_file, extract_xml_from_text
 
 
 class TestExtractDocNumbers:
@@ -219,6 +220,231 @@ class TestExtractDocNumbers:
         
         result = extract_doc_numbers(xml)
         assert result == ["999000888", "66667777"]
+
+
+class TestExtractXmlFromText:
+    """Tests for extract_xml_from_text function."""
+    
+    def test_extract_xml_from_middle_of_document(self):
+        """Test extracting XML embedded in a text document."""
+        content = """
+        This is some text before the XML.
+        Here comes the patent data:
+        
+        <root>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>
+        
+        And some text after the XML.
+        """
+        
+        xmls = extract_xml_from_text(content)
+        assert len(xmls) == 1
+        assert '<root>' in xmls[0]
+        assert '<doc-number>111111</doc-number>' in xmls[0]
+        assert 'some text before' not in xmls[0]
+    
+    def test_extract_multiple_xml_snippets(self):
+        """Test extracting multiple XML snippets from one document."""
+        content = """
+        First patent:
+        <root>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>
+        
+        Second patent:
+        <root>
+            <document-id format="epo">
+                <doc-number>222222</doc-number>
+            </document-id>
+        </root>
+        
+        End of document.
+        """
+        
+        xmls = extract_xml_from_text(content)
+        assert len(xmls) == 2
+        assert '<doc-number>111111</doc-number>' in xmls[0]
+        assert '<doc-number>222222</doc-number>' in xmls[1]
+    
+    def test_extract_xml_with_xml_declaration(self):
+        """Test that pure XML with declaration is returned as-is."""
+        content = """<?xml version="1.0"?>
+        <root>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>"""
+        
+        xmls = extract_xml_from_text(content)
+        assert len(xmls) == 1
+        assert xmls[0].strip() == content.strip()
+    
+    def test_extract_xml_pure_root_element(self):
+        """Test that pure XML starting with <root> is returned as-is."""
+        content = """<root>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>"""
+        
+        xmls = extract_xml_from_text(content)
+        assert len(xmls) == 1
+        assert xmls[0].strip() == content.strip()
+    
+    def test_extract_xml_with_attributes_in_root(self):
+        """Test extracting XML where root has attributes."""
+        content = """
+        Some preamble text
+        <root id="test" version="1.0">
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>
+        Some epilogue text
+        """
+        
+        xmls = extract_xml_from_text(content)
+        assert len(xmls) == 1
+        assert '<root id="test" version="1.0">' in xmls[0]
+        assert 'preamble' not in xmls[0]
+        assert 'epilogue' not in xmls[0]
+
+
+class TestExtractDocNumbersFromEmbeddedXml:
+    """Tests for extracting doc-numbers from XML embedded in text."""
+    
+    def test_extract_from_text_with_embedded_xml(self):
+        """Test complete extraction from document with embedded XML."""
+        content = """
+        Patent Document Analysis Report
+        ================================
+        
+        The following XML contains patent information:
+        
+        <root>
+            <application-reference>
+                <document-id format="epo">
+                    <doc-number>999000888</doc-number>
+                </document-id>
+                <document-id format="patent-office">
+                    <doc-number>66667777</doc-number>
+                </document-id>
+            </application-reference>
+        </root>
+        
+        End of patent data.
+        """
+        
+        result = extract_doc_numbers(content)
+        assert result == ["999000888", "66667777"]
+    
+    def test_extract_with_priority_from_embedded_xml(self):
+        """Test priority ordering works with embedded XML."""
+        content = """
+        Random text here
+        <root>
+            <document-id format="patent-office">
+                <doc-number>222222</doc-number>
+            </document-id>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>
+        More random text
+        """
+        
+        result = extract_doc_numbers(content)
+        assert result == ["111111", "222222"]
+
+
+class TestExtractDocNumbersFromMultipleSnippets:
+    """Tests for extracting doc-numbers from multiple XML snippets."""
+    
+    def test_extract_from_multiple_snippets(self):
+        """Test extraction from document with multiple XML snippets."""
+        content = """
+        Patent Batch Report
+        ===================
+        
+        Patent 1:
+        <root>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>
+        
+        Patent 2:
+        <root>
+            <document-id format="patent-office">
+                <doc-number>222222</doc-number>
+            </document-id>
+        </root>
+        
+        End of report.
+        """
+        
+        result = extract_doc_numbers(content)
+        assert result == ["111111", "222222"]
+    
+    def test_extract_with_priority_across_multiple_snippets(self):
+        """Test that priority is maintained across multiple XML snippets."""
+        content = """
+        Snippet 1:
+        <root>
+            <document-id format="patent-office">
+                <doc-number>222222</doc-number>
+            </document-id>
+        </root>
+        
+        Snippet 2:
+        <root>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+        </root>
+        
+        Snippet 3:
+        <root>
+            <document-id format="patent-office">
+                <doc-number>333333</doc-number>
+            </document-id>
+        </root>
+        """
+        
+        result = extract_doc_numbers(content)
+        # All epo first, then all patent-office
+        assert result == ["111111", "222222", "333333"]
+    
+    def test_extract_multiple_docs_per_snippet(self):
+        """Test extraction with multiple doc-numbers in each snippet."""
+        content = """
+        <root>
+            <document-id format="epo">
+                <doc-number>111111</doc-number>
+            </document-id>
+            <document-id format="patent-office">
+                <doc-number>222222</doc-number>
+            </document-id>
+        </root>
+        
+        <root>
+            <document-id format="epo">
+                <doc-number>333333</doc-number>
+            </document-id>
+            <document-id format="patent-office">
+                <doc-number>444444</doc-number>
+            </document-id>
+        </root>
+        """
+        
+        result = extract_doc_numbers(content)
+        # All epo first (from both snippets), then all patent-office (from both snippets)
+        assert result == ["111111", "333333", "222222", "444444"]
 
 
 class TestReadXmlFile:

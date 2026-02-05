@@ -14,6 +14,7 @@ The program processes XML patent documents and extracts `doc-number` values acco
 The application follows a modular design for testability:
 
 - **`extractor.py`**: Core extraction logic (fully unit tested)
+  - `extract_xml_from_text()`: Extracts XML from within larger text documents
   - `extract_doc_numbers()`: Parses XML and extracts doc-numbers in priority order
   - `read_xml_file()`: Handles file reading with encoding fallback
   - `extract_doc_numbers_from_file()`: Combines file reading and extraction
@@ -31,18 +32,21 @@ The implementation makes the following assumptions about the XML structure:
 
 1. **Element Hierarchy**: `document-id` elements can appear anywhere in the document tree (using XPath `//document-id`)
 
-2. **Format Attribute**: The `format` attribute on `document-id` elements determines extraction priority:
+2. **Embedded XML**: The XML may be embedded within a larger text document. The extractor will search for `<root>` tags and extract the XML portion. Pure XML files (starting with `<?xml` or `<root>`) are processed directly. **Multiple XML snippets** in a single document are supported - doc-numbers from all snippets are aggregated.
+
+3. **Format Attribute**: The `format` attribute on `document-id` elements determines extraction priority:
+3. **Format Attribute**: The `format` attribute on `document-id` elements determines extraction priority:
    - `format="epo"` → highest priority
    - `format="patent-office"` → second priority
    - Other or missing format values → lowest priority
 
-3. **Doc-Number Elements**: Each `document-id` contains a `doc-number` child element with the value to extract
+4. **Doc-Number Elements**: Each `document-id` contains a `doc-number` child element with the value to extract
 
-4. **Multiple Occurrences**: Multiple `document-id` elements may exist within a single `application-reference`, and multiple `application-reference` elements may exist in the document
+5. **Multiple Occurrences**: Multiple `document-id` elements may exist within a single `application-reference`, and multiple `application-reference` elements may exist in the document
 
-5. **Encoding**: The XML file is assumed to be UTF-8 encoded, with a fallback to Latin-1 if UTF-8 fails
+6. **Encoding**: The XML file is assumed to be UTF-8 encoded, with a fallback to Latin-1 if UTF-8 fails
 
-6. **Malformed Data**: Empty or missing `doc-number` elements are gracefully skipped without raising errors
+7. **Malformed Data**: Empty or missing `doc-number` elements are gracefully skipped without raising errors
 
 ## Error Handling
 
